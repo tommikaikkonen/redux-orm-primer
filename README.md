@@ -8,13 +8,17 @@ This article shows you how to create and test a simple todo application with som
 
 You want your data to be normalized in your Redux store. Now if your data is relational, your state is bound to look like tables in a relational database, because that's the normalized way to represent that kind of data.
 
-As you write your Redux reducers and selectors, you want to divide them to small functions to create a hierarchy of functions. This makes the functions easy to test and reason about, and is one of the great things about Redux. So for a list of entities, you might have a reducer for an entity, lets say restaurants. You have an `items` array of id's, and a `itemsById` map. You create a reducer for both. You create another subreducer inside `itemsById` reducer that applies updates on individual restaurants. That works great until you need to access the employee entities related to that restaurant. The state supplied to your restaurant reducers don't have information about employees.
+As you write your Redux reducers and selectors, you want to divide them to small functions to create a hierarchy of functions. This makes the functions easy to test and reason about, and is one of the great things about Redux. 
+
+You might have a reducer for a list of entities, lets say restaurants. To store information about restaurants, you have an `items` array of restaurant id's, and an `itemsById` map. In the main restaurant reducer, you delegate to separate `items` and `itemsById` reducers. You create another subreducer inside `itemsById` reducer that applies updates on individual restaurants' attributes.
+
+That works great until you need to access employee entities related to that restaurant. The state supplied to your restaurant reducers doesn't have information about employees.
 
 You might end up at some of these solutions to the problem:
 
-1. use `redux-thunk` to query the state with `getState` before dispatching the final action object with all the data needed for the separate reducers to do their job,
-2. write the reducer / selector logic higher up in the hierarchy or
-3. pass a larger piece of state to child reducers / selectors as an additional argument.
+- use `redux-thunk` to query the state with `getState` before dispatching the final action object with all the data needed for the separate reducers to do their job,
+- write the reducer / selector logic higher up in the hierarchy or
+- pass a larger piece of state to child reducers / selectors as an additional argument.
 
 You can work with all these, but in my opinion, they get hairy to manage. Your code ends up handling a lot of low-level logic, and the bigger picture gets lost.
 
@@ -22,10 +26,10 @@ Redux-ORM provides an abstraction over the "relational database" state object. Y
 
 In practice, the workflow with Redux-ORM looks like this:
 
-- Declare the relational schema with model classes
-- Write model-specific reducers to edit data
-- Write selectors to query data for connected components and actions
-- Plug the Redux-ORM reducer somewhere in your Redux reducer.
+1. Declare the relational schema with model classes
+2. Write model-specific reducers to edit data
+3. Write selectors to query data for connected components and actions
+4. Plug the Redux-ORM reducer somewhere in your Redux reducer.
 
 ## Designing State For Our App
 
@@ -178,7 +182,7 @@ What about non-relational fields like `User.name`, `Todo.text` and `Todo.done` t
 > };
 > ```
 
-## Defining Actions, Action Creators and Reducers
+## Defining Actions and Action Creators
 
 First up, let's define our action type constants:
 
@@ -749,7 +753,7 @@ main();
 
 ```
 
-## Testing Redux-ORM
+## Testing Reducers and Selectors
 
 We want to test that we update our state correctly based on action objects. No problem. Redux-ORM makes testing easier too.
 
