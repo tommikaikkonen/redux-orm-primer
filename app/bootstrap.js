@@ -10,7 +10,7 @@ export default function bootstrap(schema) {
     // Session instance.
     const { Todo, Tag, User } = session;
 
-    // Start by creating entities that's props are not dependent
+    // Start by creating entities whose props are not dependent
     // on others.
     const user = User.create({
         id: 0, // optional. If omitted, Redux-ORM uses a number sequence starting from 0.
@@ -32,7 +32,7 @@ export default function bootstrap(schema) {
         text: 'Buy groceries',
         done: false,
         user,
-        tags: [personal], // You could also pass ids instead of the Tag instances.
+        tags: [personal], // We could also pass ids instead of the Tag instances.
     });
     Todo.create({
         text: 'Attend meeting',
@@ -67,6 +67,7 @@ export default function bootstrap(schema) {
         tags: [personal, urgent],
     });
 
+    // Return the whole Redux initial state.
     return {
         orm: state,
         selectedUserId: 0,

@@ -1,28 +1,28 @@
 # Creating a Simple App with Redux-ORM
 
-This article shows you how to create and test a simple todo application (with some related data) using [Redux-ORM](https://github.com/tommikaikkonen/redux-orm). I'll assume you're already familiar with Redux and React. The source for the app is in this repository. Play around with the [live demo](http://tommikaikkonen.github.io/redux-orm-primer).
+This article shows you how to create and test a simple todo application with some related data using [Redux-ORM](https://github.com/tommikaikkonen/redux-orm). I'll assume you're already familiar with Redux and React. The source for the app is in this repository and you can play around with the [live demo here](http://tommikaikkonen.github.io/redux-orm-primer).
 
 ![Screenshot of the Example App](https://raw.githubusercontent.com/tommikaikkonen/redux-orm-primer/master/screenshot.png)
 
 ## Overview of Redux-ORM
 
-When you're managing state with Redux, you want data to be normalized. If your data is related, your state is bound to look like the tables in a relational database, because that's the normalized way to represent relational data.
+You want your data to be normalized in your Redux store. Now if your data is relational, your state is bound to look like tables in a relational database, because that's the normalized way to represent that kind of data.
 
-Modus operandi to manage complexity in Redux is delegating to child reducers when updating data, and to child selectors when querying data. Each receive a subset of their parent reducers/selectors input. That's awesome for reasoning with them. 
+As you write your Redux reducers and selectors, you want to divide them to small functions to create a hierarchy of functions. This makes the functions easy to test and reason about, and is one of the great things about Redux. So for a list of entities, you might have a reducer for an entity, lets say restaurants. You have an `items` array of id's, and a `itemsById` map. You create a reducer for both. You create another subreducer inside `itemsById` reducer that applies updates on individual restaurants. That works great until you need to access the employee entities related to that restaurant. The state supplied to your restaurant reducers don't have information about employees.
 
-Handling related data with this approach is problematic though. To query related "tables", you need access to their state. You either
+You might end up at some of these solutions to the problem:
 
 1. use `redux-thunk` to query the state with `getState` before dispatching the final action object with all the data needed for the separate reducers to do their job,
 2. write the reducer / selector logic higher up in the hierarchy or
-3. pass additional state to child reducers / selectors.
+3. pass a larger piece of state to child reducers / selectors as an additional argument.
 
-You can work with all these, but they get hairy to manage.
+You can work with all these, but in my opinion, they get hairy to manage. Your code ends up handling a lot of low-level logic, and the bigger picture gets lost.
 
-Redux-ORM provides an abstraction over the "relational database" state object. You define a schema (through models), and database sessions are instantiated by passing Redux-ORM the relational database state object. Reducers and selectors are able to (immutably) update and query the whole database through an ORM API, which makes them more expressive, readable and manageable.
+Redux-ORM provides an abstraction over the "relational database" state object. You define a schema through models, and start database sessions by passing a Schema instance the relational database state object. Reducers and selectors are able to respectively update and query the whole database through an immutable ORM API, which makes your code more expressive, readable and manageable.
 
 In practice, the workflow with Redux-ORM looks like this:
 
-- Declare the schema's relational shape with models
+- Declare the relational schema with model classes
 - Write model-specific reducers to edit data
 - Write selectors to query data for connected components and actions
 - Plug the Redux-ORM reducer somewhere in your Redux reducer.
@@ -71,23 +71,29 @@ An app this simple would not normally warrant using an ORM, but it'll do great t
 
 ## Defining Models
 
-To let Redux-ORM know about our structured data, we create models. They are ES6 classes that extend from Redux-ORM's `Model`, which means that you can define any helper methods or attributes you might need on your models. The methods will be accessible to you when using the ORM API.
+To let Redux-ORM know about the structure of our relational data, we create models. They are ES6 classes that extend from Redux-ORM's `Model`, which means that you can define any helper methods or attributes you might need on your models.
+
+You'll often want to define your own base model for your project that extends from Model, and continue to extend your concrete models from that. The base model can contain, for example, functionality related to async calls and validation which Redux-ORM doesn't provide. The methods will be accessible to you when using the ORM API. This example will use vanilla Model classes.
+
+Let's begin writing our Models.
 
 ```javascript
 // models.js
 import { Model } from 'redux-orm';
 
-class Todo extends Model {}
+export class Todo extends Model {}
+// Note that the modelName will be used to resolve
+// relations!
 Todo.modelName = 'Todo';
 
-class Tag extends Model {
+export class Tag extends Model {
 }
 Tag.modelName = 'Tag';
 Tag.backend = {
     idAttribute: 'name';
 };
 
-class User extends Model {}
+export class User extends Model {}
 User.modelName = 'User';
 
 ```
@@ -98,56 +104,26 @@ To declare how these models are related, we specify a static `fields` variable t
 
 ```javascript
 // models.js
-import {Model, many, fk} from 'redux-orm';
+import { Model, many, fk, Schema } from 'redux-orm';
 
-class Todo extends Model {}
+export class Todo extends Model {}
 Todo.modelName = 'Todo';
 Todo.fields = {
     user: fk('User', 'todos'),
     tags: many('Tag', 'todos'),
 };
 
-class Tag extends Model {}
+export class Tag extends Model {}
 Tag.modelName = 'Tag';
 Tag.backend = {
     idAttribute: 'name';
 };
 
-class User extends Model {}
+export class User extends Model {}
 User.modelName = 'User';
 ```
 
-What about non-relational fields like `User.name`, `Todo.text` and `Todo.done` that we defined in our schema plan? You don't need to declare non-relational fields in Redux-ORM. You can assign attributes to Model instances as if they were JavaScript objects. Redux-ORM takes care of "shallow immutability" in the model instances, so assignment to Model instances happens in an immutable fashion, but the immutability of the assigned values is your responsibility. This is only a concern if you assign referential (Object or Array) values to a Model instance and mutate those values.
-
-> ### Using PropTypes to validate non-relational fields
-> 
-> In non-trivial applications, it's smart to validate non-relational fields,
-> just like you validate incoming props on React components. This [gist](https://gist.github.com/tommikaikkonen/45d0d2ff2a5a383bb14d) shows you how to define a Model subclass, `ValidatingModel`, that you can use to define your concrete models. For example, you could use it with the Todo model like this:
->
-> ```javascript
-> class Todo extends ValidatingModel {}
-> // ...
-> Todo.propTypes = {
->     id: React.PropTypes.number.isRequired,
->     text: React.PropTypes.string.isRequired,
->     done: React.PropTypes.boolean.isRequired,
->     user: React.PropTypes.oneOf([
->         React.PropTypes.instanceOf(User),
->         React.PropTypes.number
->     ]).isRequired,
->     tags: React.PropTypes.arrayOf([
->         React.PropTypes.instanceOf(Tag),
->         React.PropTypes.number
->     ]),
-> };
-> 
-> Todo.defaultProps = {
->     done: false,
-> };
-> ```
-
-
-`many`, `fk` and `oneToOne` field factories take two arguments: the related model's `modelName` and an optional reverse field name. If the reverse field name is not specified, it will be autogenerated (as in `user.todoSet`). For example, the declaration
+`many`, `fk` and `oneToOne` field factories take two arguments: the related model's `modelName` and an optional reverse field name. If the reverse field name is not specified, it will be autogenerated (the default way to access Todos related to a user instance would be `user.todoSet`). For example, the declaration
 
 ```javascript
 tags: many('Tag', 'todos'),
@@ -173,10 +149,38 @@ means that accessing the `todos` property of a Tag model instance returns the se
 > }
 > ```
 
+What about non-relational fields like `User.name`, `Todo.text` and `Todo.done` that we defined in our schema plan? You don't need to declare non-relational fields in Redux-ORM. You can assign attributes to Model instances as if they were JavaScript objects. Redux-ORM takes care of "shallow immutability" in the model instances, so assignment to Model instances happens in an immutable fashion, but the immutability of the assigned values is your responsibility. This is only a concern if you assign referential (Object or Array) values to a Model instance and mutate those values.
 
-## Defining reducers
+> ### Using PropTypes to validate non-relational fields
+> 
+> In non-trivial applications, it's smart to validate non-relational fields,
+> just like you validate incoming props on React components. [This gist](https://gist.github.com/tommikaikkonen/45d0d2ff2a5a383bb14d) shows you how to define a Model subclass, `ValidatingModel`, that you can use to define your concrete models. You could use it with the Todo model like this:
+>
+> ```javascript
+> class Todo extends ValidatingModel {}
+> // ...
+> Todo.propTypes = {
+>     id: React.PropTypes.number,
+>     text: React.PropTypes.string.isRequired,
+>     done: React.PropTypes.boolean.isRequired,
+>     user: React.PropTypes.oneOf([
+>         React.PropTypes.instanceOf(User),
+>         React.PropTypes.number
+>     ]).isRequired,
+>     tags: React.PropTypes.arrayOf([
+>         React.PropTypes.instanceOf(Tag),
+>         React.PropTypes.number
+>     ]),
+> };
+> 
+> Todo.defaultProps = {
+>     done: false,
+> };
+> ```
 
-Redux-ORM uses model-specific reducers to operate on data. You define a static `reducer` method on Model classes, which Redux-ORM will forward Redux-dispatched actions to. First up, let's define our action type constants:
+## Defining Actions, Action Creators and Reducers
+
+First up, let's define our action type constants:
 
 ```javascript
 // actionTypes.js
@@ -253,7 +257,11 @@ export const removeTagFromTodo = (todo, tag) => {
 
 Pretty standard stuff.
 
-Moving on to writing the reducers.
+## Writing Reducers
+
+Redux-ORM uses model-specific reducers to operate on data. You define a static `reducer` method on Model classes, which will receive all Redux-dispatched actions. If you don't define a `reducer`, the default implementation will be used, which calls `.getNextState` on the model class and returns the value.
+
+First up, we'll write the reducer for the Todo model. Note that when creating a Todo, we want to pass a comma-delimited list of tags in the user interface and create the Tag instances based on that.
 
 ```javascript
 // models.js
@@ -298,7 +306,7 @@ export class Todo extends Model {
         }
 
         // This call is optional. If the reducer returns `undefined`,
-        // Redux-ORM will call this for you.
+        // Redux-ORM will call getNextState for you.
         return Todo.getNextState();
     }
 }
@@ -310,7 +318,7 @@ Todo.fields = {
 
 ```
 
-`Model.reducer` receives four arguments: the model state, the current action, the Model class, and the current Redux-ORM Session instance. You usually won't need the Session instance, but you can access and query other models through the Session instance (for example, you can access the Tag model through `session.Tag`), but modifying other model's data is not recommended nor supported.
+All Model reducers receive four arguments: the model state, the current action, the Model class, and the current Redux-ORM Session instance. You usually won't need the Session instance, but you can access and query other models through the Session instance (for example, you can access the Tag model through `session.Tag`), but modifying other model's data is not recommended nor supported.
 
 Redux-ORM enables you to be pretty expressive in your reducers and not worry about the low level stuff. All of the actions done during a session (`create`, `delete`, `add`, `set`, `update`, `remove`) record updates, which will be applied in the new state returned by `Todo.getNextState()`.
 
@@ -358,7 +366,7 @@ export default schema;
 
 We'll use the `schema` instance later to create selectors and inject the ORM reducer to Redux.
 
-We have one additional reducer outside Redux-ORM, `selectedUserIdReducer`. Let's define it in `reducers.js`. It's really simple, it just maintains a single number corresponding to the selected User id.
+We have one additional reducer outside Redux-ORM we need to define, `selectedUserIdReducer`. We'll put it in `reducers.js`. It's very simple as it maintains a single number corresponding to the selected User id.
 
 ```javascript
 // reducers.js
@@ -376,13 +384,17 @@ export function selectedUserIdReducer(state = 0, action) {
 
 ```
 
-`redux` and `reselect` libraries fit together with the [*Command Query Responsibility Segregation* pattern](http://martinfowler.com/bliki/CQRS.html). The gist of it is that you use a different model to update the information (reducers) and to read the information (selectors). We've handled the updating part of our state management. We're yet to define our selectors. Here's what we want passed to our React components:
+## Writing Selectors
 
-- An object that describes the currently selected user with their id and name.
-- A list of todos for that user, with their text, status (done or not), and a list of tag names associated with that todo.
-- A list of users you can select, with an id and the name of the user.
+`redux` and `reselect` libraries fit together with the [*Command Query Responsibility Segregation* pattern](http://martinfowler.com/bliki/CQRS.html). The gist of it is that you use a different model to update data (reducers in Redux) and to read data (selectors in Redux). We've handled the updating part of our state management. We're yet to define our selectors.
 
-Let's implement selectors for each of those. Here's selectors.js:
+First, let's think about what we want to pass to our React components.
+
+- Since we want to show the name of the current user, and bind action creators with the currently selected user's id, we need an object that describes the currently selected user with an id and a name. We'll call this selector `user`.
+- We want to show a list of todos for the selected user. Each todo in that list should have its id, text, status (done or not), and a list of tag names associated with that todo, so we can render it nicely. We'll call this selector `todos`.
+- Since we want the end user to be able to select which User to show todos for, we need a list of users you can select, with an id and the name for each user. We'll call this selector `users`.
+
+Here's selectors.js, where we implement those selectors:
 
 ```javascript
 // selectors.js
@@ -393,13 +405,13 @@ import { createSelector } from 'reselect';
 export const ormSelector = state => state.orm;
 
 // Redux-ORM selectors work with reselect. To feed input
-// selectors to a Redux-ORM selector, we use the reselect `createSelector`.
+// selectors to a Redux-ORM selector, we use the reselect `createSelector` function.
 export const todos = createSelector(
     // The first input selector should always be the orm selector.
     // Behind the scenes, `schema.createSelector` begins a Redux-ORM
-    // session with the state selected by `ormSelector` and passes
+    // session with the value returned by `ormSelector` and passes
     // that Session instance as an argument instead.
-    // So, `orm` is a Session instance.
+    // So `orm` below is a Session instance.
     ormSelector,
     state => state.selectedUserId,
     schema.createSelector((orm, userId) => {
@@ -432,6 +444,7 @@ export const user = createSelector(
         console.log('Running user selector');
         // .ref returns a reference to the plain
         // JavaScript object in the store.
+        // It includes the id and name that we need.
         return orm.User.withId(selectedUserId).ref;
     })
 );
@@ -448,13 +461,15 @@ export const users = createSelector(
 );
 ```
 
-Like `reselect` selectors, Redux-ORM selectors have memoization, but it works a little differently. `reselect` checks if the passed arguments match the previous ones, and if so, returns the previous result. Redux-ORM selectors always take the whole `orm` branch as the first argument, therefore `reselect` style memoization would only work when the whole database has not changed. The first time the `todos` selector runs, Redux-ORM observes which models' states you actually accessed. On consecutive calls, before running the selector, the memoize function checks if any of those models' state has changed - if so, the selector is run again. Otherwise the previous result is returned.
+Like `reselect` selectors, Redux-ORM selectors have memoization, but it works a little differently. `reselect` checks if the passed arguments match the previous ones, and if so, returns the previous result. Redux-ORM selectors always take the whole `orm` branch as the first argument, therefore `reselect` style memoization would only work when the whole database has not changed.
+
+To solve this, Redux-ORM observes which models' states you actually accessed when you ran the `todos` selector for the first time. On consecutive calls, before running the selector, the memoize function checks if any of those models' state has changed - if so, the selector is run again. Otherwise the previous result is returned.
 
 Redux-ORM selectors are compatible with `reselect` selectors, as they are `reselect` selectors with a schema-specific memoization function.
 
-> ### How Redux-ORM selector memoization works
+> ### How Redux-ORM Selector Memoization Works
 > 
-> Here's are the step-by-step instructions Redux-ORM uses to memoize selectors.
+> You don't need to know this to use Redux-ORM, but in case you're interested, here are the step-by-step instructions Redux-ORM uses to memoize selectors.
 >
 > 1. Has the selector been run before? If not, go to 5.
 > 2. If the selector has other input selectors in addition to the ORM state selector, check their results for equality with the previous results. If they aren't equal, go to 5.
@@ -462,7 +477,7 @@ Redux-ORM selectors are compatible with `reselect` selectors, as they are `resel
 > 4. Check which Model's states the selector has accessed on previous runs. Check for equality with each of those states versus their states in the previous ORM state. If all of them are equal, return the previous result.
 > 5. Run the selector. Check the Session object used by the selector for which Model's states were accessed, and merge them with the previously saved information about accessed models (if-else branching can change which models are accessed on different inputs). Save the ORM state and other arguments the selector was called with, overriding previously saved values. Save the selector result. Return the selector result.
 
-So for `todos` selector, we access the Todo and Tag models (because we access all todos with `Todo.map(todo => ...)` and the related tags with `todo.tags`). The `user` selector accesses only the User model. All of our actions modify either the Todo or Tag model states, so the `todos` selector is run after every update. If we also had a Tag selector like this:
+So for `todos` selector, we access the Todo and Tag models (because we access all todos with `Todo.map(todo => ...)` and the related tags with `todo.tags`). The `user` selector accesses only the User model. All of our actions modify either the Todo or Tag model states, or change the selected user, so the `todos` selector is run after every update. If we also had a Tag selector like this:
 
 ```javascript
 const tagNames = schema.createSelector(orm => {
@@ -470,7 +485,7 @@ const tagNames = schema.createSelector(orm => {
 });
 ```
 
-it would only get run after the actions `createTodo`, `addTagToTodo` and `removeTagFromTodo` that possibly create more tags.
+it would only get run after the actions `createTodo`, `addTagToTodo` and `removeTagFromTodo` that possibly change the Tag model state.
 
 When possible, we return plain objects and direct references from the state from selectors. It is much easier to use pure React components by passing plain JavaScript to props -- with Model instances, you would have to override `shouldComponentUpdate` to avoid redundant renders.
 
@@ -484,11 +499,15 @@ Next up, let's create our application's main React component that uses the actio
 import React, { PropTypes } from 'react';
 import PureComponent from 'react-pure-render/component';
 import { connect } from 'react-redux';
+
+// Dumb components, their implementation is not relevant
+// to this article.
 import {
     TodoItem,
     AddTodoForm,
     UserSelector,
 } from './components';
+
 import {
     selectUser,
     createTodo,
@@ -604,7 +623,7 @@ export default connect(stateToProps, dispatchToProps)(App);
 
 ## Bootstrapping Initial State
 
-To create an initial state for our app, we can instantiate an ORM session. To construct the initial state, we don't need immutable operations. We can do that with a mutating session.
+To create an initial state for our app, we can manually instantiate an ORM session. To construct the initial state, we don't need immutable operations. We can do that with a mutating session.
 
 In the model reducers and selectors, a session was instantiated for us automatically. You can instantiate a mutating session by calling the `withMutations` method on a Schema instance, and an immutable one with the `from` method. Both methods take a state object as the required first argument, and optionally an action object as the second argument.
 
@@ -624,7 +643,7 @@ export default function bootstrap(schema) {
     // Session instance.
     const { Todo, Tag, User } = session;
 
-    // Start by creating entities that's props are not dependent
+    // Start by creating entities whose props are not dependent
     // on others.
     const user = User.create({
         id: 0, // optional. If omitted, Redux-ORM uses a number sequence starting from 0.
@@ -646,7 +665,7 @@ export default function bootstrap(schema) {
         text: 'Buy groceries',
         done: false,
         user,
-        tags: [personal], // You could also pass ids instead of the Tag instances.
+        tags: [personal], // We could also pass ids instead of the Tag instances.
     });
     Todo.create({
         text: 'Attend meeting',
@@ -681,6 +700,7 @@ export default function bootstrap(schema) {
         tags: [personal, urgent],
     });
 
+    // Return the whole Redux initial state.
     return {
         orm: state,
         selectedUserId: 0,
@@ -689,7 +709,7 @@ export default function bootstrap(schema) {
 
 ```
 
-Then we can feed that state to Redux. Schema instances have a `reducer` method that returns a reducer function you can plug in to a root reducer. A common way to do that is have an `orm` branch in your state. Here's the index.js file that brings the whole app together.
+Then we can feed that state to Redux. Schema instances have a `reducer` method that returns a reducer function you can plug in to a root reducer. A common way to do that is to have an `orm` branch in your state. Here's the index.js file that brings the whole app together.
 
 ```jsx
 // index.js
@@ -733,7 +753,7 @@ main();
 
 We want to test that we update our state correctly based on action objects. No problem. Redux-ORM makes testing easier too.
 
-For good integration testing, we want to have nice test data and have the ability to easily generate it. Using an adapter, we can utilize the `factory-girl` library to generate data for us (this is overkill for a Todo app, but it will be handy in larger projects). You could also use the function we wrote in bootstrap.js to generate test data.
+For good integration testing, we want to have nice test data and have the ability to easily generate it. Using an adapter, we can utilize the [`factory-girl`](https://github.com/aexmachina/factory-girl) library to generate data for us (this is overkill for a Todo app, but it is handy in larger projects). You could also use the function we wrote in bootstrap.js to generate test data.
 
 Here's test/factories.js:
 
@@ -773,7 +793,7 @@ export default factory;
 
 ```
 
-Now we can use the factories to generate some initial data. In our model test suite's `beforeEach`, we start a mutating session, so that `factory-girl` generates the data to a mutating state object. (*Model classes are currently singletons that can be connected to zero or one sessions, so this works even though `factory-girl` knows only about our Model classes and not our Session instance. The Model classes may not be singletons in the future, so I recommend always getting your Model classes from the Session instance*)
+Now we can use the factories to generate some initial data. In our model test suite's `beforeEach`, we start a mutating session, so that `factory-girl` generates the data to a mutating state object. (*Model classes are currently singletons that can be connected to zero or one sessions at a time, so this works even though `factory-girl` knows only about our Model classes and not our Session instance. The Model classes may not be singletons in the future, so I recommend always getting your Model classes from the Session instance*)
 
 ```javascript
 /* eslint no-unused-expressions: 0 */
@@ -791,7 +811,7 @@ import Promise from 'bluebird';
 import { applyActionAndGetNextSession } from './utils';
 
 describe('Models', () => {
-    // This will be the initial state.
+    // This will be the initial ORM state.
     let state;
 
     // This will be a Session instance with the initial data.
@@ -799,6 +819,8 @@ describe('Models', () => {
 
     beforeEach(done => {
         // Get the default state and start a mutating session.
+        // Before we start another session, all Model classes
+        // will be bound to this session.
         state = schema.getDefaultState();
         session = schema.withMutations(state);
 
@@ -810,7 +832,7 @@ describe('Models', () => {
                 return factory.createMany('Todo', { user: userId }, 10);
             }));
         }).then(() => {
-            // Generating data is finished, start up a session.
+            // Generating data is finished, start up an immutable session.
             session = schema.from(state);
 
             // Let mocha know we're done setting up.
@@ -859,10 +881,12 @@ describe('Models', () => {
         expect(newTodo.done).to.be.false;
         expect(newTodo.tags.map(tag => tag.name)).to.deep.equal(['testing', 'nice', 'cool']);
     });
+
+    // To see tests for the rest of the actions, check out the source.
 });
 ```
 
-We can use a similar `beforeEach` setup with selectors, although we construct the whole Redux state that they take as an input (this includes the selected user id):
+We can use a similar `beforeEach` setup with selectors, although we'll construct the whole Redux state that they take as an input instead of just the ORM state (this includes the selected user id):
 
 ```javascript
 import { expect } from 'chai';
@@ -930,4 +954,4 @@ describe('Selectors', () => {
 
 And that's it! Play around with the [live demo](https://tommikaikkonen.github.io/redux-orm-primer) and remember to open up the console.
 
-Ping me on Twitter @tommikaikkonen if you have any questions, or open up an issue in the [redux-orm repository](https://github.com/tommikaikkonen/redux-orm).
+Ping me on Twitter ([@tommikaikkonen](https://twitter.com/tommikaikkonen)) if you have any questions, or open up an issue in the [redux-orm repository](https://github.com/tommikaikkonen/redux-orm).
