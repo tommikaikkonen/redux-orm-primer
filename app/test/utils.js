@@ -4,8 +4,12 @@ export function applyActionAndGetNextSession(schema, state, action) {
 }
 
 export class ReduxORMAdapter {
-    build(Model, props) {
-        return Model.create(props);
+    constructor(session) {
+        this.session = session;
+    }
+
+    build(modelName, props) {
+        return this.session[modelName].create(props);
     }
 
     get(doc, attr) {
@@ -16,11 +20,11 @@ export class ReduxORMAdapter {
         doc.update(props);
     }
 
-    save(doc, Model, cb) {
+    save(doc, modelName, cb) {
         process.nextTick(cb);
     }
 
-    destroy(doc, Model, cb) {
+    destroy(doc, modelName, cb) {
         doc.delete();
         process.nextTick(cb);
     }

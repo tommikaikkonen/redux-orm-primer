@@ -8,7 +8,7 @@ import {
 import { schema } from '../models';
 import factory from './factories';
 import Promise from 'bluebird';
-import { applyActionAndGetNextSession } from './utils';
+import { applyActionAndGetNextSession, ReduxORMAdapter } from './utils';
 
 describe('Selectors', () => {
     let ormState;
@@ -19,6 +19,8 @@ describe('Selectors', () => {
         ormState = schema.getDefaultState();
 
         session = schema.withMutations(ormState);
+
+        factory.setAdapter(new ReduxORMAdapter(session));
 
         factory.createMany('User', 2).then(users => {
             return Promise.all(users.map(user => {

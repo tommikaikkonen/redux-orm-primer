@@ -8,10 +8,7 @@ import { ReduxORMAdapter } from './utils';
 // We promisify factory-girl so we can use Promises instead of callbacks.
 const factory = _factory.promisify(bluebird);
 
-// Use a simple adapter for Redux-ORM
-factory.setAdapter(new ReduxORMAdapter());
-
-factory.define('Todo', Todo, {
+factory.define('Todo', 'Todo', {
     id: factory.sequence(n => n),
     text: factory.sequence(n => `Todo ${n}`),
     user: factory.assoc('User', 'id'),
@@ -19,12 +16,12 @@ factory.define('Todo', Todo, {
     done: factory.sequence(n => n % 2 ? true : false),
 });
 
-factory.define('User', User, {
+factory.define('User', 'User', {
     id: factory.sequence(n => n),
     name: factory.sequence(n => `User ${n}`),
 });
 
-factory.define('Tag', Tag, {
+factory.define('Tag', 'Tag', {
     name: factory.sequence(n => `Tag ${n}`),
 });
 

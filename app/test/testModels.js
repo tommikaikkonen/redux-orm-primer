@@ -10,7 +10,7 @@ import {
 import { schema } from '../models';
 import factory from './factories';
 import Promise from 'bluebird';
-import { applyActionAndGetNextSession } from './utils';
+import { applyActionAndGetNextSession, ReduxORMAdapter } from './utils';
 
 describe('Models', () => {
     // This will be the initial state.
@@ -23,6 +23,8 @@ describe('Models', () => {
         // Get the default state and start a mutating session.
         state = schema.getDefaultState();
         session = schema.withMutations(state);
+
+        factory.setAdapter(new ReduxORMAdapter(session));
 
         factory.createMany('User', 2).then(users => {
             return Promise.all(users.map(user => {

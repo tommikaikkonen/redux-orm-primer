@@ -48,7 +48,6 @@ export class TextSubmitter extends PureComponent {
 TextSubmitter.propTypes = {
     text: PropTypes.string.isRequired,
     onSubmit: PropTypes.func.isRequired,
-    ref: PropTypes.func,
 };
 
 export class TodoItem extends PureComponent {

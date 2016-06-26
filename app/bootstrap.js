@@ -30,19 +30,16 @@ export default function bootstrap(schema) {
     // Todo's for `user`
     Todo.create({
         text: 'Buy groceries',
-        done: false,
         user,
         tags: [personal], // We could also pass ids instead of the Tag instances.
     });
     Todo.create({
         text: 'Attend meeting',
-        done: false,
         user,
         tags: [work],
     });
     Todo.create({
         text: 'Pay bills',
-        done: false,
         user,
         tags: [personal, urgent],
     });
@@ -50,19 +47,16 @@ export default function bootstrap(schema) {
     // Todo's for `otherUser`
     Todo.create({
         text: 'Prepare meals for the week',
-        done: false,
         user: otherUser,
         tags: [personal, chore],
     });
     Todo.create({
         text: 'Fix the washing machine',
-        done: false,
         user: otherUser,
         tags: [personal, chore],
     });
     Todo.create({
         text: 'Negotiate internet subscription',
-        done: false,
         user: otherUser,
         tags: [personal, urgent],
     });
