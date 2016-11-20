@@ -1,5 +1,5 @@
 /* eslint-disable default-case, no-shadow */
-import { Schema, Model, many, fk } from 'redux-orm';
+import { ORM, Model, many, fk } from 'redux-orm';
 import { PropTypes } from 'react';
 import propTypesMixin from 'redux-orm-proptypes';
 import {
@@ -13,7 +13,7 @@ import {
 const ValidatingModel = propTypesMixin(Model);
 
 export class Tag extends ValidatingModel {
-    static reducer(state, action, Tag) {
+    static reducer(action, Tag) {
         const { payload, type } = action;
         switch (type) {
         case CREATE_TODO:
@@ -30,7 +30,7 @@ export class Tag extends ValidatingModel {
     }
 }
 Tag.modelName = 'Tag';
-Tag.backend = {
+Tag.options = {
     idAttribute: 'name',
 };
 
@@ -38,7 +38,8 @@ export class User extends ValidatingModel {}
 User.modelName = 'User';
 
 export class Todo extends ValidatingModel {
-    static reducer(state, action, Todo, session) {
+    static reducer(action, Todo, session) {
+        console.log('Todo reducer');
         const { payload, type } = action;
         switch (type) {
         case CREATE_TODO:
@@ -90,7 +91,7 @@ Todo.defaultProps = {
     done: false,
 };
 
-export const schema = new Schema();
-schema.register(Todo, Tag, User);
+export const orm = new ORM();
+orm.register(Todo, Tag, User);
 
-export default schema;
+export default orm;

@@ -1,10 +1,10 @@
-export default function bootstrap(schema) {
+export default function bootstrap(orm) {
     // Get the empty state according to our schema.
-    const state = schema.getDefaultState();
+    const state = orm.getEmptyState();
 
     // Begin a mutating session with that state.
     // `state` will be mutated.
-    const session = schema.withMutations(state);
+    const session = orm.mutableSession(state);
 
     // Model classes are available as properties of the
     // Session instance.
