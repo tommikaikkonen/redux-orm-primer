@@ -1,5 +1,5 @@
 /* eslint-disable default-case, no-shadow */
-import { ORM, Model, many, fk } from 'redux-orm';
+import { ORM, Model, many, fk, attr } from 'redux-orm';
 import { PropTypes } from 'react';
 import propTypesMixin from 'redux-orm-proptypes';
 import {
@@ -33,9 +33,16 @@ Tag.modelName = 'Tag';
 Tag.options = {
     idAttribute: 'name',
 };
+Tag.fields = {
+    name: attr(),
+}
 
 export class User extends ValidatingModel {}
 User.modelName = 'User';
+User.fields = {
+    id: attr(),
+    name: attr(),
+};
 
 export class Todo extends ValidatingModel {
     static reducer(action, Todo, session) {
@@ -72,6 +79,9 @@ export class Todo extends ValidatingModel {
 }
 Todo.modelName = 'Todo';
 Todo.fields = {
+    id: attr(),
+    done: attr(),
+    text: attr(),
     tags: many('Tag', 'todos'),
     user: fk('User', 'todos'),
 };
