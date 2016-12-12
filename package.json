@@ -37,7 +37,7 @@
     "redux": "^3.0.4",
     "redux-diff-logger": "0.0.6",
     "redux-logger": "^2.4.0",
-    "redux-orm": "^0.8.1",
+    "redux-orm": "^0.9.0-rc.0",
     "redux-orm-proptypes": "^0.1.0",
     "reselect": "^2.0.1",
     "webpack": "^1.13.1",
