@@ -26,6 +26,14 @@ export class Tag extends ValidatingModel {
                 Tag.create({ name: payload.tag });
             }
             break;
+        case REMOVE_TAG_FROM_TODO:
+            // If there are no more todos with this tag,
+            // delete the tag.
+            const tag = Tag.withId(payload.tag);
+            if (tag.todos.all().count() === 1) {
+                tag.delete()
+            }
+            break;
         }
     }
 }
