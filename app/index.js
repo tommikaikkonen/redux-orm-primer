@@ -17,7 +17,11 @@ const rootReducer = combineReducers({
 // the internal state maintained by Redux-ORM.
 const createStoreWithMiddleware = applyMiddleware(createLogger())(createStore);
 
-const store = createStoreWithMiddleware(rootReducer, bootstrap(schema));
+const store = createStoreWithMiddleware(
+    rootReducer,
+    bootstrap(schema),
+    window.__REDUX_DEVTOOLS_EXTENSION__ && window.__REDUX_DEVTOOLS_EXTENSION__()
+);
 
 function main() {
     // In the repo, we have a simple index.html that includes Bootstrap CSS files
